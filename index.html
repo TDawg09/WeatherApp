@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <!-- iOS home screen app settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="images/apple-touch-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="images/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="images/apple-touch-icon-152x152.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@4.5.2/dist/sketchy/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Comic Sans MS', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #212529;
+        }
+        
+        .content-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .weather-card {
+            background-color: #343a40;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .current-weather {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .weather-icon-large {
+            font-size: 4rem;
+            margin: 15px 0;
+        }
+        
+        .weather-condition {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .temperature-display {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .detail-card {
+            background-color: #495057;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .detail-icon {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+        
+        .detail-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .detail-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+    <div class="content-container">
+        <div class="weather-card">
+             <!-- Current weather display section -->
+            <div id="current-weather" class="current-weather">
+                <h2 class="mb-0">Current Weather</h2>
+                <div id="location" class="location">Loading Location...</div>
+                <div id="weather-icon" class="weather-icon-large" aria-hidden="true">
+                    <i class="bi bi-cloud-fill"></i>
+                </div>
+                <div id="weather-condition" class="weather-condition">Loading Weather...</div>
+                <h3 id="temperature" class="temperature-display" aria-live="polite">--°</h3>
+            </div>
+            
+            <!-- Humidity card -->
+            <div class="details-grid">
+                <div class="detail-card">
+                    <i class="bi bi-droplet-fill detail-icon" aria-hidden="true"></i>
+                    <div id="humidity" class="detail-value" aria-live="polite">--%</div>
+                    <div class="detail-label">Humidity</div>
+                </div>
+                
+                <!-- Feels like temperature card -->
+                <div class="detail-card">
+                    <i class="bi bi-thermometer detail-icon" aria-hidden="true"></i>
+                    <div id="feels-like" class="detail-value" aria-live="polite">--°</div>
+                    <div class="detail-label">Feels Like</div>
+                </div>
+                
+                <!-- Wind speed card -->
+                <div class="detail-card">
+                    <i class="bi bi-wind detail-icon" aria-hidden="true"></i>
+                    <div id="wind-speed" class="detail-value" aria-live="polite">--mph</div>
+                    <div class="detail-label">Wind Speed</div>
+                </div>
+                
+                <!-- Precipitation card -->
+                <div class="detail-card">
+                    <i class="bi bi-umbrella detail-icon" aria-hidden="true"></i>
+                    <div id="precipitation" class="detail-value" aria-live="polite">--%</div>
+                    <div class="detail-label">Precipitation</div>
+                </div>
+            </div>
+            <div id="last-updated" class="last-updated">Last updated: --</div>
+        </div>
+</div>
+<script>
+
+     //DOM Element References - getting all UI elements we'll need to update
+    const locationElement = document.getElementById('location');
+    const weatherIconElement = document.getElementById('weather-icon');
+    const weatherConditionElement = document.getElementById('weather-condition');
+    const temperatureElement = document.getElementById('temperature');
+    const humidityElement = document.getElementById('humidity');
+    const feelsLikeElement = document.getElementById('feels-like');
+    const windElement = document.getElementById('wind-speed');
+    const precipitationElement = document.getElementById('precipitation')
+    const lastUpdatedElement = document.getElementById('last-updated')
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+
+    /**
+     * Gets the user's current geolocation
+     * Returns a Promise that resolves with the latitude and longitude
+     * or rejects with an error if geolocation is unavailable
+     */
+    function getMyLocation() {
+        return new Promise((resolve, reject) => {
+            if(navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        });
+                    },
+                    (error) => {
+                        reject(error);
+                    },
+                    {timeout: 10000}
+                )
+            }
+            else{
+                reject(new Error('Geolocation is not supported'));
+            }
+        });
+    }
+
+    /**
+     * Gets the location name from coordinates using the Open-Meteo Geocoding API
+     * @param {number} latitude - The latitude coordinate
+     * @param {number} longitude - The longitude coordinate
+     * @returns {Promise<string>} - The location name or 'Unknown Location' if not found
+     */
+    // I was having issues with this part of the code, having trouble fetching the location properly. Turned off my vpn and it still wasn't working.
+    async function getLocationName(latitude, longitude) {
+        try {
+            const url = `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if(data.features && data.features.length > 0) {
+                const locationInfo = data.features[0].properties;
+                return locationInfo.name || 'Unknown Location';
+            }
+            return 'Unknown Location';
+        } catch (error) {
+            console.error('Error getting location name:', error);
+            return 'Unknown Location';
+        }
+    }
+
+    /**
+     * Fetches weather data from the Open-Meteo API
+     * @param {number} latitude - The latitude coordinate
+     * @param {number} longitude - The longitude coordinate
+     * @returns {Promise<Object|null>} - Weather data object or null if error occurs
+     */
+    async function getWeatherData(latitude, longitude) {
+        try{
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=precipitation_probability&timezone=auto`;
+            const response = await fetch(url);
+            if(!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching weather data:', error);
+            return null
+        }
+    }
+
+     /**
+     * Maps the API weather code to human-readable weather condition and icon
+     * @param {number} weatherCode - WMO weather code from the API
+     * @returns {Object} - Object containing condition text and icon HTML
+     */
+    function getWeatherInfo(weatherCode) {
+        const weatherConditions = {
+                0: { condition: 'Clear Sky', icon: '<i class="bi bi-sun-fill"></i>' },
+                1: { condition: 'Mainly Clear', icon: '<i class="bi bi-sun"></i>' },
+                2: { condition: 'Partly Cloudy', icon: '<i class="bi bi-cloud-sun"></i>' },
+                3: { condition: 'Overcast', icon: '<i class="bi bi-cloud-fill"></i>' },
+                45: { condition: 'Fog', icon: '<i class="bi bi-cloud-fog-fill"></i>' },
+                48: { condition: 'Depositing Rime Fog', icon: '<i class="bi bi-cloud-fog2-fill"></i>' },
+                51: { condition: 'Light Drizzle', icon: '<i class="bi bi-cloud-drizzle"></i>' },
+                53: { condition: 'Moderate Drizzle', icon: '<i class="bi bi-cloud-drizzle-fill"></i>' },
+                55: { condition: 'Dense Drizzle', icon: '<i class="bi bi-cloud-drizzle-fill"></i>' },
+                61: { condition: 'Slight Rain', icon: '<i class="bi bi-cloud-rain"></i>' },
+                63: { condition: 'Moderate Rain', icon: '<i class="bi bi-cloud-rain-fill"></i>' },
+                65: { condition: 'Heavy Rain', icon: '<i class="bi bi-cloud-rain-heavy-fill"></i>' },
+                71: { condition: 'Slight Snow', icon: '<i class="bi bi-cloud-snow"></i>' },
+                73: { condition: 'Moderate Snow', icon: '<i class="bi bi-cloud-snow-fill"></i>' },
+                75: { condition: 'Heavy Snow', icon: '<i class="bi bi-cloud-snow-fill"></i>' },
+                80: { condition: 'Light Showers', icon: '<i class="bi bi-cloud-rain"></i>' },
+                81: { condition: 'Moderate Showers', icon: '<i class="bi bi-cloud-rain-fill"></i>' },
+                82: { condition: 'Violent Showers', icon: '<i class="bi bi-cloud-rain-heavy-fill"></i>' },
+                95: { condition: 'Thunderstorm', icon: '<i class="bi bi-cloud-lightning-fill"></i>' },
+                96: { condition: 'Thunderstorm with Hail', icon: '<i class="bi bi-cloud-lightning-rain-fill"></i>' },
+                99: { condition: 'Heavy Thunderstorm with Hail', icon: '<i class="bi bi-cloud-lightning-rain-fill"></i>' }
+        }
+        return weatherConditions[weatherCode] || { condition: 'Unknown', icon: '<i class="bi bi-question-circle"></i>' };
+    }
+
+    /**
+     * Updates the UI with weather data
+     * @param {Object} data - Weather data from the API
+     * @param {number} latitude - The latitude coordinate
+     * @param {number} longitude - The longitude coordinate
+     */
+    async function updateUI(data, latitude, longitude) {
+            if (!data || !data.current) {
+                showError('Unable to retrieve weather data.');
+                return;
+            }
+            const temp = Math.round(data.current.temperature_2m);
+            const feelsLike = Math.round(data.current.apparent_temperature);
+            const humidity = Math.round(data.current.relative_humidity_2m);
+            const windSpeed = Math.round(data.current.wind_speed_10m);
+            const weatherCode = data.current.weather_code;
+            const currentHourIndex = new Date().getHours();
+            const precipitation = data.hourly.precipitation_probability[currentHourIndex];
+            const weatherInfo = getWeatherInfo(weatherCode);
+            const locationName = await getLocationName(latitude, longitude);
+            
+            temperatureElement.textContent = `${temp}°`;
+            feelsLikeElement.textContent = `${feelsLike}°`;
+            humidityElement.textContent = `${humidity}%`;
+            windElement.textContent = `${windSpeed} mph`;
+            precipitationElement.textContent = `${precipitation}%`;
+            weatherConditionElement.textContent = weatherInfo.condition;
+            weatherIconElement.innerHTML = weatherInfo.icon;
+            locationElement.textContent = locationName;
+            
+            const now = new Date();
+            lastUpdatedElement.textContent = `Last updated: ${now.toLocaleTimeString()}`;
+        }
+
+        /**
+         * Shows an error message when weather data can't be loaded
+         * @param {string} message - The error message to display
+         */
+        function showError(message) {
+            weatherConditionElement.textContent = message;
+            temperatureElement.textContent = '--°';
+            weatherIconElement.innerHTML = '<i class="bi bi-exclamation-triangle" style="color: #dc3545;"></i>';
+        }
+
+        /**
+         * Initializes the weather app
+         * Gets location, fetches weather data, and updates UI
+         * Falls back to default location (New York) if user location is unavailable
+         */
+        async function initWeatherApp() {
+            try {
+                const coords = await getMyLocation();
+                const weatherData = await getWeatherData(coords.latitude, coords.longitude);
+                await updateUI(weatherData, coords.latitude, coords.longitude);
+            } catch (locationError) {
+                console.error('Error getting location:', locationError);
+                try {
+                    const defaultLat = 40.71;
+                    const defaultLon = -74.01;
+                    const weatherData = await getWeatherData(defaultLat, defaultLon);
+                    await updateUI(weatherData, defaultLat, defaultLon);
+                    weatherConditionElement.textContent += ' (Location access denied)';
+                } catch (weatherError) {
+                    showError('Unable to retrieve weather data.');
+                    console.error('Error getting weather for default location:', weatherError);
+                }
+            }
+        }
+        document.addEventListener('DOMContentLoaded', initWeatherApp);
+        setInterval(refreshWeather, 30 * 60 * 1000);
+
+</script>
+</body>
+</html>
